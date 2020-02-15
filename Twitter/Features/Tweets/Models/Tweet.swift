@@ -9,11 +9,17 @@
 import Foundation
 
 struct Tweet: Decodable {
+    let id: Int
     let text: String
     let user: User
+    var retweet_count: Int
+    var favorite_count: Int
+    var favorited: Bool
+    var retweeted: Bool
 }
 
 struct User: Decodable {
     let name: String
+    let screen_name: String
     let profile_image_url_https: String
 }

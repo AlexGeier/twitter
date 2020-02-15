@@ -11,7 +11,13 @@ import UIKit
 class TweetTableViewController: UITableViewController {
     private let cellId = "cellId"
     private var tweets = [Tweet]()
-    private var numberOfTweets = 0
+    
+    private let loadingIndicator: UIActivityIndicatorView = {
+        let activityIndicator = UIActivityIndicatorView()
+        activityIndicator.hidesWhenStopped = true
+        
+        return activityIndicator
+    }()
     
     private let refreshController: UIRefreshControl = {
         let refreshControl = UIRefreshControl()
@@ -24,20 +30,34 @@ class TweetTableViewController: UITableViewController {
         super.viewDidLoad()
         
         navigationItem.title = "Twitter"
-        let backButton = UIBarButtonItem(
-            title: "Sign Out",
-            style: .done,
-            target: nil,
-            action: nil
-        )
-        
-        self.navigationController?.navigationBar.topItem?.backBarButtonItem = backButton
+        navigationItem.leftBarButtonItem = .init(title: "Sign Out", style: .plain, target: self, action: #selector(onSignOutPressed))
+        navigationItem.rightBarButtonItem = .init(title: "Tweet", style: .plain, target: self, action: #selector(onCreateTweetPressed))
         
         tableView.register(TweetCell.self, forCellReuseIdentifier: cellId)
         
-        fetchData() {}
+        tableView.addSubview(loadingIndicator)
+        loadingIndicator.centerInSuperview()
         
         refreshControl = refreshController
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        loadingIndicator.startAnimating()
+
+        fetchData() {
+            self.loadingIndicator.stopAnimating()
+        }
+    }
+    
+    @objc private func onCreateTweetPressed() {
+        navigationController?.pushViewController(CreateTweetViewController(), animated: true)
+    }
+    
+    @objc private func onSignOutPressed() {
+        TwitterService.shared?.signOut()
+        navigationController?.popViewController(animated: true)
     }
     
     @objc private func onRefresh() {
@@ -47,58 +67,19 @@ class TweetTableViewController: UITableViewController {
     }
     
     private func fetchData(completion: @escaping () -> ()) {
-        let urlString = "https://api.twitter.com/1.1/statuses/home_timeline.json"
-        let parameters = [
-            "count": 20
-        ]
-        
-        TwitterService.shared?.getDictionariesRequest(url: urlString, parameters: parameters, success: { (tweets: [NSDictionary]) in
-            self.tweets.removeAll()
-            self.numberOfTweets = 20
-            for tweet in tweets {
-                let userDict: NSDictionary = tweet.value(forKey: "user") as! NSDictionary
-                let userObject = User(name: userDict.value(forKey: "name") as! String, profile_image_url_https: userDict.value(forKey: "profile_image_url_https") as! String)
-                let tweetObject = Tweet(text: tweet.value(forKey: "text") as! String, user: userObject)
-                self.tweets.append(tweetObject)
+        TwitterService.shared?.getTweets(count: tweets.count + 20, completion: { result in
+            completion()
+            
+            switch result {
+            case .success(let tweets):
+                self.tweets = tweets
+                self.tableView.reloadData()
+            case .failure:
+                let alert = UIAlertController(title: "Uh oh!", message: "Failed to load tweets. Try again later.", preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+                self.present(alert, animated: true)
             }
-            self.tableView.reloadData()
-            completion()
-        }, failure: { (error: Error) in
-            print("fetch tweets error")
-            completion()
         })
-    }
-    
-    private func fetchMoreData(completion: @escaping () -> ()) {
-        numberOfTweets += 20
-
-        let urlString = "https://api.twitter.com/1.1/statuses/home_timeline.json"
-        let parameters = [
-            "count": numberOfTweets
-        ]
-        
-        TwitterService.shared?.getDictionariesRequest(url: urlString, parameters: parameters, success: { (tweets: [NSDictionary]) in
-            self.tweets.removeAll()
-            for tweet in tweets {
-                let userDict: NSDictionary = tweet.value(forKey: "user") as! NSDictionary
-                let userObject = User(name: userDict.value(forKey: "name") as! String, profile_image_url_https: userDict.value(forKey: "profile_image_url_https") as! String)
-                let tweetObject = Tweet(text: tweet.value(forKey: "text") as! String, user: userObject)
-                self.tweets.append(tweetObject)
-            }
-            self.tableView.reloadData()
-            completion()
-        }, failure: { (error: Error) in
-            print("fetch tweets error")
-            completion()
-        })
-    }
-    
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        
-        if isMovingFromParent {
-            TwitterService.shared?.signOut()
-        }
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -114,7 +95,7 @@ class TweetTableViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
         if (indexPath.row == tweets.count - 1) {
-            fetchMoreData() {}
+            fetchData() {}
         }
     }
 }

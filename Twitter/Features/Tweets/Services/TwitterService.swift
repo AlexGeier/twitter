@@ -15,7 +15,7 @@ class TwitterService: BDBOAuth1SessionManager {
     var loginSuccess: (() -> ())?
     var loginFailure: ((Error) -> ())?
     var controller: UIViewController?
-        
+    
     func handleOpenUrl(url: URL) {
         let requestToken = BDBOAuth1Credential(queryString: url.query)
         TwitterService.shared?.fetchAccessToken(withPath: "oauth/access_token", method: "POST", requestToken: requestToken, success: { (accessToken: BDBOAuth1Credential!) in
@@ -47,28 +47,129 @@ class TwitterService: BDBOAuth1SessionManager {
         UserDefaults.standard.set(false, forKey: "userSignedIn")
     }
     
-    func getDictionaryRequest(url: String, parameters: [String:Any], success: @escaping (NSDictionary) -> (), failure: @escaping (Error) -> ()) {
-        TwitterService.shared?.get(url, parameters: parameters, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
-            success(response as! NSDictionary)
+    func getTweets(count: Int, completion: @escaping (Result<[Tweet], Error>) -> ()) {
+        let urlString = "https://api.twitter.com/1.1/statuses/home_timeline.json"
+        let parameters = [
+            "count": 20
+        ]
+        TwitterService.shared?.get(urlString, parameters: parameters, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            var tweets = [Tweet]()
+            
+            let tweetDictionary = response as! [NSDictionary]
+            for tweet in tweetDictionary {
+                let userDict: NSDictionary = tweet.value(forKey: "user") as! NSDictionary
+                let userObject = User(name: userDict.value(forKey: "name") as! String, screen_name: userDict.value(forKey: "screen_name") as! String, profile_image_url_https: userDict.value(forKey: "profile_image_url_https") as! String)
+                let tweetObject = Tweet(
+                    id: tweet.value(forKey: "id") as! Int,
+                    text: tweet.value(forKey: "text") as! String,
+                    user: userObject,
+                    retweet_count: tweet.value(forKey: "retweet_count") as! Int,
+                    favorite_count: tweet.value(forKey: "favorite_count") as! Int,
+                    favorited: tweet.value(forKey: "favorited") as! Bool,
+                    retweeted: tweet.value(forKey: "retweeted") as! Bool
+                )
+                tweets.append(tweetObject)
+            }
+            
+            completion(.success(tweets))
         }, failure: { (task: URLSessionDataTask?, error: Error) in
-            failure(error)
+            completion(.failure(error))
         })
     }
     
-    func getDictionariesRequest(url: String, parameters: [String:Any], success: @escaping ([NSDictionary]) -> (), failure: @escaping (Error) -> ()) {
-        TwitterService.shared?.get(url, parameters: parameters, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
-            success(response as! [NSDictionary])
+    func getTweet(id: Int, completion: @escaping (Result<Tweet, Error>) -> ()) {
+        let urlString = "https://api.twitter.com/1.1/statuses/home_timeline/\(id).json"
+        
+        TwitterService.shared?.get(urlString, parameters: nil, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            let tweetDictionary = response as! NSDictionary
+            let userDict: NSDictionary = tweetDictionary.value(forKey: "user") as! NSDictionary
+            let userObject = User(name: userDict.value(forKey: "name") as! String, screen_name: userDict.value(forKey: "screen_name") as! String, profile_image_url_https: userDict.value(forKey: "profile_image_url_https") as! String)
+            let tweetObject = Tweet(
+                id: tweetDictionary.value(forKey: "id") as! Int,
+                text: tweetDictionary.value(forKey: "text") as! String,
+                user: userObject,
+                retweet_count: tweetDictionary.value(forKey: "retweet_count") as! Int,
+                favorite_count: tweetDictionary.value(forKey: "favorite_count") as! Int,
+                favorited: tweetDictionary.value(forKey: "favorited") as! Bool,
+                retweeted: tweetDictionary.value(forKey: "retweeted") as! Bool
+            )
+            
+            completion(.success(tweetObject))
         }, failure: { (task: URLSessionDataTask?, error: Error) in
-            print(error)
-            failure(error)
+            completion(.failure(error))
         })
     }
-
-    func postRequest(url: String, parameters: [Any], success: @escaping () -> (), failure: @escaping (Error) -> ()) {
-        TwitterService.shared?.post(url, parameters: parameters, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
-            success()
+    
+    func favorite(id: Int, completion: @escaping (Result<Bool, Error>) -> ()) {
+        let urlString = "https://api.twitter.com/1.1/favorites/create.json"
+        
+        let parameters = [
+            "id": id
+        ]
+        
+        TwitterService.shared?.post(urlString, parameters: parameters, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            let responseDictionary = response as! NSDictionary
+            print(responseDictionary)
+            completion(.success(true))
         }, failure: { (task: URLSessionDataTask?, error: Error) in
-            failure(error)
+            print(error)
+            completion(.failure(error))
+        })
+    }
+    
+    func unfavorite(id: Int, completion: @escaping (Result<Bool, Error>) -> ()) {
+        let urlString = "https://api.twitter.com/1.1/favorites/destroy.json"
+        
+        let parameters = [
+            "id": id
+        ]
+        
+        TwitterService.shared?.post(urlString, parameters: parameters, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            let responseDictionary = response as! NSDictionary
+            print(responseDictionary)
+            
+            completion(.success(false))
+        }, failure: { (task: URLSessionDataTask?, error: Error) in
+            completion(.failure(error))
+        })
+    }
+    
+    func retweet(id: Int, completion: @escaping (Result<Bool, Error>) -> ()) {
+        let urlString = "https://api.twitter.com/1.1/statuses/retweet/\(id).json"
+        
+        TwitterService.shared?.post(urlString, parameters: nil, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            let responseDictionary = response as! NSDictionary
+            print(responseDictionary)
+            
+            completion(.success(true))
+        }, failure: { (task: URLSessionDataTask?, error: Error) in
+            completion(.failure(error))
+        })
+    }
+    
+    func unRetweet(id: Int, completion: @escaping (Result<Bool, Error>) -> ()) {
+        let urlString = "https://api.twitter.com/1.1/statuses/retweet\(id).json"
+        
+        TwitterService.shared?.post(urlString, parameters: nil, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            let responseDictionary = response as! NSDictionary
+            print(responseDictionary)
+            
+            completion(.success(false))
+        }, failure: { (task: URLSessionDataTask?, error: Error) in
+            completion(.failure(error))
+        })
+    }
+    
+    func postTweet(content: String, completion: @escaping (Result<Void, Error>) -> ()) {
+        let urlString = "https://api.twitter.com/1.1/statuses/update.json"
+        let parameters = [
+            "status": content
+        ]
+        
+        TwitterService.shared?.post(urlString, parameters: parameters, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
+            completion(.success(()))
+        }, failure: { (task: URLSessionDataTask?, error: Error) in
+            completion(.failure(error))
         })
     }
 }
