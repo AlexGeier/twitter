@@ -36,7 +36,6 @@ func fetchJSON<T: Decodable>(urlString: String, completion: @escaping (Result<T,
             let jsonData = try JSONDecoder().decode(T.self, from: data)
             completion(.success(jsonData))
         } catch {
-            print(error)
             completion(.failure(FetchError.decode))
         }
     }.resume()

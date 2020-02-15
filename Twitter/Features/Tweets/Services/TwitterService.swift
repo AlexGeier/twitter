@@ -109,10 +109,8 @@ class TwitterService: BDBOAuth1SessionManager {
         
         TwitterService.shared?.post(urlString, parameters: parameters, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
             let responseDictionary = response as! NSDictionary
-            print(responseDictionary)
             completion(.success(true))
         }, failure: { (task: URLSessionDataTask?, error: Error) in
-            print(error)
             completion(.failure(error))
         })
     }
@@ -126,7 +124,6 @@ class TwitterService: BDBOAuth1SessionManager {
         
         TwitterService.shared?.post(urlString, parameters: parameters, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
             let responseDictionary = response as! NSDictionary
-            print(responseDictionary)
             
             completion(.success(false))
         }, failure: { (task: URLSessionDataTask?, error: Error) in
@@ -139,7 +136,6 @@ class TwitterService: BDBOAuth1SessionManager {
         
         TwitterService.shared?.post(urlString, parameters: nil, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
             let responseDictionary = response as! NSDictionary
-            print(responseDictionary)
             
             completion(.success(true))
         }, failure: { (task: URLSessionDataTask?, error: Error) in
@@ -148,11 +144,10 @@ class TwitterService: BDBOAuth1SessionManager {
     }
     
     func unRetweet(id: Int, completion: @escaping (Result<Bool, Error>) -> ()) {
-        let urlString = "https://api.twitter.com/1.1/statuses/retweet\(id).json"
+        let urlString = "https://api.twitter.com/1.1/statuses/unretweet/\(id).json"
         
         TwitterService.shared?.post(urlString, parameters: nil, progress: nil, success: { (task: URLSessionDataTask, response: Any?) in
             let responseDictionary = response as! NSDictionary
-            print(responseDictionary)
             
             completion(.success(false))
         }, failure: { (task: URLSessionDataTask?, error: Error) in
